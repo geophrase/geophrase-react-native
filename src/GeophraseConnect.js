@@ -67,7 +67,7 @@ const GeophraseConnect = ({
     const injectMessageToWeb = (data) => {
         if (webviewRef.current) {
             const script = `window.postMessage(${JSON.stringify(data)}, '*'); true;`;
-            webviewRef.current.injectJavaScript(script);
+            webviewRef.current?.injectJavaScript(script);
         }
     };
 
@@ -97,7 +97,7 @@ const GeophraseConnect = ({
                 if (onError) onError({
                     type: 'API_ERROR',
                     status: response.status,
-                    message: errorData.message || 'Geophrase API resolution failed'
+                    message: errorData.message || `Geophrase API error (${response.status})`
                 });
                 return;
             }
