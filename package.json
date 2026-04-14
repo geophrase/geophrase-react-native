@@ -1,6 +1,6 @@
 {
   "name": "@geophrase/react-native",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "The React Native SDK for Geophrase Connect.",
   "homepage": "https://business.geophrase.com/docs",
   "main": "index.js",
