@@ -31,7 +31,10 @@ const GeophraseConnect = ({
         let hasPermission = false;
 
         if (Platform.OS === 'ios') {
-            Geolocation.requestAuthorization('whenInUse');
+            Geolocation.requestAuthorization(
+                () => {},
+                error => { console.log("Geophrase iOS Permission Error:", error); }
+            );
             hasPermission = true; // iOS handles the prompt natively via the library
         } else if (Platform.OS === 'android') {
             const granted = await PermissionsAndroid.request(
