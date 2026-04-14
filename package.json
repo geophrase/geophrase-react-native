@@ -1,0 +1,36 @@
+{
+  "name": "@geophrase/react-native",
+  "version": "1.0.0",
+  "description": "The React Native SDK for Geophrase Connect.",
+  "homepage": "https://business.geophrase.com/docs",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/geophrase/geophrase-react-native.git"
+  },
+  "bugs": {
+    "url": "https://github.com/geophrase/geophrase-react-native/issues"
+  },
+  "keywords": [
+    "react-native",
+    "address",
+    "geophrase",
+    "webview",
+    "location"
+  ],
+  "author": "Geophrase",
+  "license": "MIT",
+  "peerDependencies": {
+    "react": ">=16.8.0",
+    "react-native": ">=0.60.0",
+    "react-native-webview": ">=11.0.0",
+    "react-native-device-info": ">=10.0.0",
+    "@react-native-community/geolocation": ">=3.0.0"
+  },
+  "files": [
+    "src",
+    "index.js",
+    "index.d.ts"
+  ]
+}

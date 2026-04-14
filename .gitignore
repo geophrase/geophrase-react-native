@@ -1,0 +1,59 @@
+/.idea/
+# Dependency Directories
+node_modules/
+jspm_packages/
+.pnp
+.pnp.js
+
+# Node Logs
+npm-debug.log
+yarn-error.log
+yarn-debug.log
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# React Native / Metro Bundler
+*.bundle
+*.jsbundle
+.metro-health-check*
+
+# Example App Native Builds (iOS)
+example/ios/Pods/
+example/ios/build/
+example/ios/*.xcworkspace/xcuserdata/
+example/ios/*.xcodeproj/xcuserdata/
+example/ios/*.xcodeproj/project.xcworkspace/xcuserdata/
+example/ios/DerivedData/
+
+# Example App Native Builds (Android)
+example/android/.gradle/
+example/android/build/
+example/android/app/build/
+example/android/.idea/
+example/android/local.properties
+*.apk
+*.aab
+
+# Environment Variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDEs and Editors
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
