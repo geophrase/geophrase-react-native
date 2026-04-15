@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { Modal, StyleSheet, View, Platform, PermissionsAndroid } from 'react-native';
 import { WebView } from 'react-native-webview';
 import DeviceInfo from 'react-native-device-info';
@@ -17,8 +17,18 @@ const GeophraseConnect = ({
                               onClose,
                           }) => {
     const webviewRef = useRef(null);
+    const watchIdRef = useRef(null);
 
-    // 1. Build the target URL with mobile query parameter
+    // 1. Memory Cleanup: Clear the GPS watch when the widget unmounts
+    useEffect(() => {
+        return () => {
+            if (watchIdRef.current !== null) {
+                Geolocation.clearWatch(watchIdRef.current);
+            }
+        };
+    }, []);
+
+    // 2. Build the target URL with mobile query parameter
     const buildUrl = () => {
         let url = `${WIDGET_ORIGIN}?api-key=${apiKey}&platform=mobile`;
         if (orderId) url += `&order-id=${orderId}`;
@@ -26,7 +36,7 @@ const GeophraseConnect = ({
         return url;
     };
 
-    // 2. Handle GPS Native Permissions and Coordinates
+    // 3. Handle GPS Native Permissions and Progressive Coordinates
     const handleLocationRequest = async () => {
         let hasPermission = false;
 
@@ -48,7 +58,13 @@ const GeophraseConnect = ({
             return;
         }
 
-        Geolocation.getCurrentPosition(
+        // Clear any existing watch before starting a new one
+        if (watchIdRef.current !== null) {
+            Geolocation.clearWatch(watchIdRef.current);
+        }
+
+        // Start progressive location streaming
+        watchIdRef.current = Geolocation.watchPosition(
             (position) => {
                 injectMessageToWeb({
                     type: 'GEOPHRASE_LOCATION_RESULT',
@@ -57,13 +73,18 @@ const GeophraseConnect = ({
                 });
             },
             (error) => {
+                // This now fires if the user denies permissions OR if 30s pass
                 injectMessageToWeb({ type: 'GEOPHRASE_LOCATION_DENIED' });
             },
-            { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+            {
+                enableHighAccuracy: true,
+                distanceFilter: 10,
+                timeout: 30000
+            }
         );
     };
 
-    // 3. Send data BACK to the Next.js widget
+    // 4. Send data BACK to the Next.js widget
     const injectMessageToWeb = (data) => {
         if (webviewRef.current) {
             const script = `window.postMessage(${JSON.stringify(data)}, '*'); true;`;
@@ -71,7 +92,7 @@ const GeophraseConnect = ({
         }
     };
 
-    // 4. Resolve Token with Native Headers
+    // 5. Resolve Token with Native Headers
     const handleTokenResolution = async (token) => {
         try {
             const bundleId = DeviceInfo.getBundleId();
@@ -113,7 +134,7 @@ const GeophraseConnect = ({
         }
     };
 
-    // 5. Intercept messages from the Next.js widget
+    // 6. Intercept messages from the Next.js widget
     const onMessage = (event) => {
         let data;
         try {
