@@ -95,7 +95,7 @@ const GeophraseConnect = ({
         }
     };
 
-    // 5. Resolve Token with Native Headers (FIXED: AbortController Timeout)
+    // 5. Resolve Token with Native Headers (FIXED: AbortController Timeout & Finally block)
     const handleTokenResolution = async (token) => {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 15000); // 15-second network timeout
@@ -120,8 +120,6 @@ const GeophraseConnect = ({
                 signal: controller.signal,
             });
 
-            clearTimeout(timeoutId);
-
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
                 if (onError) onError({
@@ -136,11 +134,13 @@ const GeophraseConnect = ({
             if (onSuccess) onSuccess(responseData);
 
         } catch (error) {
-            clearTimeout(timeoutId);
             if (onError) onError({
                 type: 'NETWORK_ERROR',
                 message: error.name === 'AbortError' ? 'Geophrase API request timed out' : error.message
             });
+        } finally {
+            // This is guaranteed to execute, cleaning up the timeout memory perfectly
+            clearTimeout(timeoutId);
         }
     };
 
@@ -169,9 +169,15 @@ const GeophraseConnect = ({
         }
     };
 
-    // 7. Security: Lock navigation to Geophrase domain
+    // 7. Security: Lock navigation strictly to the Geophrase domain
     const onShouldStartLoadWithRequest = (request) => {
-        return request.url.startsWith(WIDGET_ORIGIN);
+        try {
+            const url = new URL(request.url);
+            return url.origin === WIDGET_ORIGIN;
+        } catch {
+            // Block navigation if the URL is malformed or invalid
+            return false;
+        }
     };
 
     return (
