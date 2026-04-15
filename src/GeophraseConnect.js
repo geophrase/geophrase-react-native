@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { Modal, StyleSheet, View, Platform, PermissionsAndroid } from 'react-native';
+import { Modal, StyleSheet, View, Platform, PermissionsAndroid, ActivityIndicator } from 'react-native';
 import { WebView } from 'react-native-webview';
 import DeviceInfo from 'react-native-device-info';
 import Geolocation from '@react-native-community/geolocation';
@@ -19,20 +19,27 @@ const GeophraseConnect = ({
     const webviewRef = useRef(null);
     const watchIdRef = useRef(null);
 
-    // 1. Memory Cleanup: Clear the GPS watch when the widget unmounts
+    // 1. Memory Cleanup: Clear the GPS watch when unmounted
     useEffect(() => {
-        return () => {
-            if (watchIdRef.current !== null) {
-                Geolocation.clearWatch(watchIdRef.current);
-            }
-        };
-    }, []);
+        if (!visible) {
+            stopLocationWatch();
+        }
+        return () => stopLocationWatch();
+    }, [visible]);
 
-    // 2. Build the target URL with mobile query parameter
+    // Helper to kill GPS hardware aggressively
+    const stopLocationWatch = () => {
+        if (watchIdRef.current !== null) {
+            Geolocation.clearWatch(watchIdRef.current);
+            watchIdRef.current = null;
+        }
+    };
+
+    // 2. Build the target URL (FIXED: URL Encoding)
     const buildUrl = () => {
-        let url = `${WIDGET_ORIGIN}?api-key=${apiKey}&platform=mobile`;
-        if (orderId) url += `&order-id=${orderId}`;
-        if (phone) url += `&phone=${phone}`;
+        let url = `${WIDGET_ORIGIN}?api-key=${encodeURIComponent(apiKey)}&platform=mobile`;
+        if (orderId) url += `&order-id=${encodeURIComponent(orderId)}`;
+        if (phone) url += `&phone=${encodeURIComponent(phone)}`;
         return url;
     };
 
@@ -45,7 +52,7 @@ const GeophraseConnect = ({
                 () => {},
                 error => { console.log("Geophrase iOS Permission Error:", error); }
             );
-            hasPermission = true; // iOS handles the prompt natively via the library
+            hasPermission = true;
         } else if (Platform.OS === 'android') {
             const granted = await PermissionsAndroid.request(
                 PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
@@ -58,12 +65,8 @@ const GeophraseConnect = ({
             return;
         }
 
-        // Clear any existing watch before starting a new one
-        if (watchIdRef.current !== null) {
-            Geolocation.clearWatch(watchIdRef.current);
-        }
+        stopLocationWatch();
 
-        // Start progressive location streaming
         watchIdRef.current = Geolocation.watchPosition(
             (position) => {
                 injectMessageToWeb({
@@ -73,8 +76,8 @@ const GeophraseConnect = ({
                 });
             },
             (error) => {
-                // This now fires if the user denies permissions OR if 30s pass
                 injectMessageToWeb({ type: 'GEOPHRASE_LOCATION_DENIED' });
+                stopLocationWatch();
             },
             {
                 enableHighAccuracy: true,
@@ -92,8 +95,11 @@ const GeophraseConnect = ({
         }
     };
 
-    // 5. Resolve Token with Native Headers
+    // 5. Resolve Token with Native Headers (FIXED: AbortController Timeout)
     const handleTokenResolution = async (token) => {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15-second network timeout
+
         try {
             const bundleId = DeviceInfo.getBundleId();
             const headers = {
@@ -111,7 +117,10 @@ const GeophraseConnect = ({
                 method: "POST",
                 headers: headers,
                 body: JSON.stringify({ token }),
+                signal: controller.signal,
             });
+
+            clearTimeout(timeoutId);
 
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
@@ -127,11 +136,18 @@ const GeophraseConnect = ({
             if (onSuccess) onSuccess(responseData);
 
         } catch (error) {
+            clearTimeout(timeoutId);
             if (onError) onError({
                 type: 'NETWORK_ERROR',
-                message: error.message || 'Failed to connect to Geophrase API'
+                message: error.name === 'AbortError' ? 'Geophrase API request timed out' : error.message
             });
         }
+    };
+
+    // Helper to safely close and cleanup
+    const handleClose = () => {
+        stopLocationWatch();
+        if (onClose) onClose();
     };
 
     // 6. Intercept messages from the Next.js widget
@@ -144,17 +160,18 @@ const GeophraseConnect = ({
         }
 
         if (data?.type === 'GEOPHRASE_CLOSE_WIDGET') {
-            if (onClose) onClose();
-        }
-
-        if (data?.type === 'GEOPHRASE_REQUEST_LOCATION') {
+            handleClose();
+        } else if (data?.type === 'GEOPHRASE_REQUEST_LOCATION') {
             handleLocationRequest();
-        }
-
-        if (data?.type === 'GEOPHRASE_RESOLUTION_TOKEN') {
-            if (onClose) onClose(); // Hide modal during resolution
+        } else if (data?.type === 'GEOPHRASE_RESOLUTION_TOKEN') {
+            handleClose(); // Hide modal during resolution and kill GPS
             handleTokenResolution(data.token);
         }
+    };
+
+    // 7. Security: Lock navigation to Geophrase domain
+    const onShouldStartLoadWithRequest = (request) => {
+        return request.url.startsWith(WIDGET_ORIGIN);
     };
 
     return (
@@ -162,7 +179,7 @@ const GeophraseConnect = ({
             visible={visible}
             animationType="slide"
             transparent={true}
-            onRequestClose={onClose}
+            onRequestClose={handleClose}
         >
             <View style={styles.container}>
                 <View style={styles.webviewContainer}>
@@ -173,6 +190,13 @@ const GeophraseConnect = ({
                         javaScriptEnabled={true}
                         bounces={false}
                         showsVerticalScrollIndicator={false}
+                        onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
+                        startInLoadingState={true}
+                        renderLoading={() => (
+                            <View style={styles.loadingContainer}>
+                                <ActivityIndicator size="large" color="#000000" />
+                            </View>
+                        )}
                     />
                 </View>
             </View>
@@ -184,12 +208,24 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: 'rgba(0, 0, 0, 0.6)',
-        justifyContent: 'center',
-        alignItems: 'center',
+        justifyContent: 'flex-end', // Optional: push to bottom like a bottom sheet
     },
     webviewContainer: {
         width: '100%',
-        height: '100%',
+        height: '90%', // Leave a little room at the top for context
+        backgroundColor: '#fff',
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+        overflow: 'hidden',
+    },
+    loadingContainer: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        justifyContent: 'center',
+        alignItems: 'center',
         backgroundColor: '#fff',
     }
 });
