@@ -4,7 +4,15 @@
   "description": "The React Native SDK for Geophrase Connect.",
   "homepage": "https://business.geophrase.com/docs",
   "main": "index.js",
+  "react-native": "index.js",
   "types": "index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./index.js",
+      "require": "./index.js",
+      "types": "./index.d.ts"
+    }
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/geophrase/geophrase-react-native.git"
@@ -21,6 +29,9 @@
   ],
   "author": "Geophrase",
   "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "peerDependencies": {
     "react": ">=16.8.0",
     "react-native": ">=0.60.0",
