@@ -19,7 +19,7 @@ const GeophraseConnect = ({
     const webviewRef = useRef(null);
     const watchIdRef = useRef(null);
 
-    // 1. Memory Cleanup: Clear the GPS watch when unmounted
+    // 1. Memory Cleanup: Clear the GPS watch when unmounted or hidden
     useEffect(() => {
         if (!visible) {
             stopLocationWatch();
@@ -35,12 +35,19 @@ const GeophraseConnect = ({
         }
     };
 
-    // 2. Build the target URL (FIXED: URL Encoding)
-    const buildUrl = () => {
+    // 2. Prevent eager loading and kill background sessions safely
+    const getSource = () => {
+        // If the modal is hidden, load a blank local string.
+        // This prevents the background network request and saves your SMS OTP costs.
+        if (!visible) {
+            return { html: '' };
+        }
+
+        // Only build and request the live URL when the modal is actually open.
         let url = `${WIDGET_ORIGIN}?api-key=${encodeURIComponent(apiKey)}&platform=mobile`;
         if (orderId) url += `&order-id=${encodeURIComponent(orderId)}`;
         if (phone) url += `&phone=${encodeURIComponent(phone)}`;
-        return url;
+        return { uri: url };
     };
 
     // 3. Handle GPS Native Permissions and Progressive Coordinates
@@ -95,7 +102,7 @@ const GeophraseConnect = ({
         }
     };
 
-    // 5. Resolve Token with Native Headers (FIXED: AbortController Timeout & Finally block)
+    // 5. Resolve Token with Native Headers (Includes AbortController Timeout)
     const handleTokenResolution = async (token) => {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 15000); // 15-second network timeout
@@ -172,6 +179,10 @@ const GeophraseConnect = ({
     // 7. Security: Lock navigation strictly to the Geophrase domain
     const onShouldStartLoadWithRequest = (request) => {
         try {
+            // Allow blank html string when not visible
+            if (request.url === 'about:blank' || !request.url.startsWith('http')) {
+                return true;
+            }
             const url = new URL(request.url);
             return url.origin === WIDGET_ORIGIN;
         } catch {
@@ -191,7 +202,7 @@ const GeophraseConnect = ({
                 <View style={styles.webviewContainer}>
                     <WebView
                         ref={webviewRef}
-                        source={{ uri: buildUrl() }}
+                        source={getSource()}
                         onMessage={onMessage}
                         javaScriptEnabled={true}
                         bounces={false}
@@ -214,11 +225,11 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: 'rgba(0, 0, 0, 0.6)',
-        justifyContent: 'flex-end', // Optional: push to bottom like a bottom sheet
+        justifyContent: 'flex-end',
     },
     webviewContainer: {
         width: '100%',
-        height: '90%', // Leave a little room at the top for context
+        height: '90%',
         backgroundColor: '#fff',
         borderTopLeftRadius: 20,
         borderTopRightRadius: 20,
