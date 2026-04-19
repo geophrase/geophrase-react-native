@@ -9,7 +9,7 @@ const WIDGET_ORIGIN = 'https://connect.geophrase.com';
 
 const GeophraseConnect = ({
                               visible,
-                              mode = 'client', // Default to client flow
+                              mode = 'client',
                               theme,
                               apiKey,
                               orderId,
@@ -33,10 +33,12 @@ const GeophraseConnect = ({
             if (mode === 'server' && apiKey) {
                 console.warn("Geophrase Warning: 'apiKey' is ignored when mode is 'server'. Ensure you are not exposing a secure key in your frontend.");
             }
+            if (theme && !['light', 'dark', 'system'].includes(theme)) {
+                console.warn(`Geophrase Warning: Invalid theme '${theme}'. Falling back to default.`);
+            }
         }
-    }, [visible, mode, apiKey]);
+    }, [visible, mode, apiKey, theme]);
 
-    // 2. Memory Cleanup: Clear the GPS watch when unmounted or hidden
     useEffect(() => {
         if (!visible) {
             stopLocationWatch();
@@ -51,13 +53,11 @@ const GeophraseConnect = ({
         }
     };
 
-    // 3. Prevent eager loading and build secure URL
     const getSource = () => {
         if (!visible) {
             return { html: '' };
         }
 
-        // API Key is intentionally omitted from the URL query params for security
         let url = `${WIDGET_ORIGIN}?platform=mobile`;
         if (orderId) url += `&order-id=${encodeURIComponent(orderId)}`;
         if (phone) url += `&phone=${encodeURIComponent(phone)}`;
@@ -65,48 +65,46 @@ const GeophraseConnect = ({
         return { uri: url };
     };
 
-    // 4. Handle GPS Native Permissions and Progressive Coordinates
+    // 2. Fixed iOS Permission Flow
     const handleLocationRequest = async () => {
-        let hasPermission = false;
+        stopLocationWatch();
+
+        const startWatching = () => {
+            watchIdRef.current = Geolocation.watchPosition(
+                (position) => {
+                    injectMessageToWeb({
+                        type: 'GEOPHRASE_LOCATION_RESULT',
+                        lat: position.coords.latitude,
+                        lng: position.coords.longitude
+                    });
+                },
+                (error) => {
+                    injectMessageToWeb({ type: 'GEOPHRASE_LOCATION_DENIED' });
+                    stopLocationWatch();
+                },
+                {
+                    enableHighAccuracy: true,
+                    distanceFilter: 10,
+                    timeout: 30000
+                }
+            );
+        };
 
         if (Platform.OS === 'ios') {
             Geolocation.requestAuthorization(
-                () => {},
-                error => { console.log("Geophrase iOS Permission Error:", error); }
+                () => startWatching(),
+                (error) => injectMessageToWeb({ type: 'GEOPHRASE_LOCATION_DENIED' })
             );
-            hasPermission = true;
         } else if (Platform.OS === 'android') {
             const granted = await PermissionsAndroid.request(
                 PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
             );
-            hasPermission = granted === PermissionsAndroid.RESULTS.GRANTED;
-        }
-
-        if (!hasPermission) {
-            injectMessageToWeb({ type: 'GEOPHRASE_LOCATION_DENIED' });
-            return;
-        }
-
-        stopLocationWatch();
-
-        watchIdRef.current = Geolocation.watchPosition(
-            (position) => {
-                injectMessageToWeb({
-                    type: 'GEOPHRASE_LOCATION_RESULT',
-                    lat: position.coords.latitude,
-                    lng: position.coords.longitude
-                });
-            },
-            (error) => {
+            if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+                startWatching();
+            } else {
                 injectMessageToWeb({ type: 'GEOPHRASE_LOCATION_DENIED' });
-                stopLocationWatch();
-            },
-            {
-                enableHighAccuracy: true,
-                distanceFilter: 10,
-                timeout: 30000
             }
-        );
+        }
     };
 
     const injectMessageToWeb = (data) => {
@@ -116,7 +114,6 @@ const GeophraseConnect = ({
         }
     };
 
-    // 5. Resolve Token with Native Headers (Client Mode Only)
     const handleTokenResolution = async (token) => {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 15000);
@@ -128,7 +125,6 @@ const GeophraseConnect = ({
                 "Content-Type": "application/json"
             };
 
-            // Inject native bundle identifiers for dashboard tracking/restrictions
             if (Platform.OS === 'ios') {
                 headers['X-iOS-Bundle-Identifier'] = bundleId;
             } else if (Platform.OS === 'android') {
@@ -170,7 +166,6 @@ const GeophraseConnect = ({
         if (onClose) onClose();
     };
 
-    // 6. Intercept messages from the Next.js widget
     const onMessage = (event) => {
         let data;
         try {
@@ -186,7 +181,6 @@ const GeophraseConnect = ({
         } else if (data?.type === 'GEOPHRASE_RESOLUTION_TOKEN') {
             handleClose();
 
-            // Route based on architectural mode
             if (mode === 'server') {
                 if (onSuccess) onSuccess({ token: data.token });
             } else {
@@ -207,7 +201,6 @@ const GeophraseConnect = ({
         }
     };
 
-    // 7. Render dynamic background based on theme prop to prevent flash
     const modalBackgroundColor = theme === 'dark' ? '#121212' : '#ffffff';
 
     return (
