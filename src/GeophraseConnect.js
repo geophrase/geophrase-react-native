@@ -9,6 +9,8 @@ const WIDGET_ORIGIN = 'https://connect.geophrase.com';
 
 const GeophraseConnect = ({
                               visible,
+                              mode = 'client', // Default to client flow
+                              theme,
                               apiKey,
                               orderId,
                               phone,
@@ -19,7 +21,22 @@ const GeophraseConnect = ({
     const webviewRef = useRef(null);
     const watchIdRef = useRef(null);
 
-    // 1. Memory Cleanup: Clear the GPS watch when unmounted or hidden
+    // 1. Strict Validation Warnings
+    useEffect(() => {
+        if (visible) {
+            if (!['client', 'server'].includes(mode)) {
+                console.error(`Geophrase Error: Invalid mode '${mode}'. Expected 'client' or 'server'.`);
+            }
+            if (mode === 'client' && !apiKey) {
+                console.error("Geophrase Error: 'apiKey' is required when mode is 'client'.");
+            }
+            if (mode === 'server' && apiKey) {
+                console.warn("Geophrase Warning: 'apiKey' is ignored when mode is 'server'. Ensure you are not exposing a secure key in your frontend.");
+            }
+        }
+    }, [visible, mode, apiKey]);
+
+    // 2. Memory Cleanup: Clear the GPS watch when unmounted or hidden
     useEffect(() => {
         if (!visible) {
             stopLocationWatch();
@@ -27,7 +44,6 @@ const GeophraseConnect = ({
         return () => stopLocationWatch();
     }, [visible]);
 
-    // Helper to kill GPS hardware aggressively
     const stopLocationWatch = () => {
         if (watchIdRef.current !== null) {
             Geolocation.clearWatch(watchIdRef.current);
@@ -35,22 +51,21 @@ const GeophraseConnect = ({
         }
     };
 
-    // 2. Prevent eager loading and kill background sessions safely
+    // 3. Prevent eager loading and build secure URL
     const getSource = () => {
-        // If the modal is hidden, load a blank local string.
-        // This prevents the background network request and saves your SMS OTP costs.
         if (!visible) {
             return { html: '' };
         }
 
-        // Only build and request the live URL when the modal is actually open.
-        let url = `${WIDGET_ORIGIN}?api-key=${encodeURIComponent(apiKey)}&platform=mobile`;
+        // API Key is intentionally omitted from the URL query params for security
+        let url = `${WIDGET_ORIGIN}?platform=mobile`;
         if (orderId) url += `&order-id=${encodeURIComponent(orderId)}`;
         if (phone) url += `&phone=${encodeURIComponent(phone)}`;
+        if (theme) url += `&theme=${encodeURIComponent(theme)}`;
         return { uri: url };
     };
 
-    // 3. Handle GPS Native Permissions and Progressive Coordinates
+    // 4. Handle GPS Native Permissions and Progressive Coordinates
     const handleLocationRequest = async () => {
         let hasPermission = false;
 
@@ -94,7 +109,6 @@ const GeophraseConnect = ({
         );
     };
 
-    // 4. Send data BACK to the Next.js widget
     const injectMessageToWeb = (data) => {
         if (webviewRef.current) {
             const script = `window.postMessage(${JSON.stringify(data)}, '*'); true;`;
@@ -102,10 +116,10 @@ const GeophraseConnect = ({
         }
     };
 
-    // 5. Resolve Token with Native Headers (Includes AbortController Timeout)
+    // 5. Resolve Token with Native Headers (Client Mode Only)
     const handleTokenResolution = async (token) => {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15-second network timeout
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
 
         try {
             const bundleId = DeviceInfo.getBundleId();
@@ -114,6 +128,7 @@ const GeophraseConnect = ({
                 "Content-Type": "application/json"
             };
 
+            // Inject native bundle identifiers for dashboard tracking/restrictions
             if (Platform.OS === 'ios') {
                 headers['X-iOS-Bundle-Identifier'] = bundleId;
             } else if (Platform.OS === 'android') {
@@ -146,12 +161,10 @@ const GeophraseConnect = ({
                 message: error.name === 'AbortError' ? 'Geophrase API request timed out' : error.message
             });
         } finally {
-            // This is guaranteed to execute, cleaning up the timeout memory perfectly
             clearTimeout(timeoutId);
         }
     };
 
-    // Helper to safely close and cleanup
     const handleClose = () => {
         stopLocationWatch();
         if (onClose) onClose();
@@ -171,25 +184,31 @@ const GeophraseConnect = ({
         } else if (data?.type === 'GEOPHRASE_REQUEST_LOCATION') {
             handleLocationRequest();
         } else if (data?.type === 'GEOPHRASE_RESOLUTION_TOKEN') {
-            handleClose(); // Hide modal during resolution and kill GPS
-            handleTokenResolution(data.token);
+            handleClose();
+
+            // Route based on architectural mode
+            if (mode === 'server') {
+                if (onSuccess) onSuccess({ token: data.token });
+            } else {
+                handleTokenResolution(data.token);
+            }
         }
     };
 
-    // 7. Security: Lock navigation strictly to the Geophrase domain
     const onShouldStartLoadWithRequest = (request) => {
         try {
-            // Allow blank html string when not visible
             if (request.url === 'about:blank' || !request.url.startsWith('http')) {
                 return true;
             }
             const url = new URL(request.url);
             return url.origin === WIDGET_ORIGIN;
         } catch {
-            // Block navigation if the URL is malformed or invalid
             return false;
         }
     };
+
+    // 7. Render dynamic background based on theme prop to prevent flash
+    const modalBackgroundColor = theme === 'dark' ? '#121212' : '#ffffff';
 
     return (
         <Modal
@@ -199,7 +218,7 @@ const GeophraseConnect = ({
             onRequestClose={handleClose}
         >
             <View style={styles.container}>
-                <View style={styles.webviewContainer}>
+                <View style={[styles.webviewContainer, { backgroundColor: modalBackgroundColor }]}>
                     <WebView
                         ref={webviewRef}
                         source={getSource()}
@@ -210,8 +229,8 @@ const GeophraseConnect = ({
                         onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
                         startInLoadingState={true}
                         renderLoading={() => (
-                            <View style={styles.loadingContainer}>
-                                <ActivityIndicator size="large" color="#000000" />
+                            <View style={[styles.loadingContainer, { backgroundColor: modalBackgroundColor }]}>
+                                <ActivityIndicator size="large" color={theme === 'dark' ? '#ffffff' : '#000000'} />
                             </View>
                         )}
                     />
@@ -230,7 +249,6 @@ const styles = StyleSheet.create({
     webviewContainer: {
         width: '100%',
         height: '90%',
-        backgroundColor: '#fff',
         borderTopLeftRadius: 20,
         borderTopRightRadius: 20,
         overflow: 'hidden',
@@ -243,7 +261,6 @@ const styles = StyleSheet.create({
         bottom: 0,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: '#fff',
     }
 });
 
