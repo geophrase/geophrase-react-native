@@ -100,32 +100,40 @@ const GeophraseConnect = ({
         webviewRef.current.injectJavaScript(script);
     };
 
+    const startWatching = () => {
+        watchIdRef.current = Geolocation.watchPosition(
+            (position) => {
+                injectMessageToWeb({
+                    type: 'GEOPHRASE_LOCATION_RESULT',
+                    lat: position.coords.latitude,
+                    lng: position.coords.longitude,
+                });
+            },
+            () => {
+                // watchPosition itself reports permission denial / GPS failure,
+                // which is what we rely on for iOS when requestAuthorization's
+                // callbacks don't fire on already-authorized devices.
+                injectMessageToWeb({ type: 'GEOPHRASE_LOCATION_DENIED' });
+                stopLocationWatch();
+            },
+            { enableHighAccuracy: true, distanceFilter: 10, timeout: 30000 }
+        );
+    };
+
     const handleLocationRequest = async () => {
         stopLocationWatch();
 
-        const startWatching = () => {
-            watchIdRef.current = Geolocation.watchPosition(
-                (position) => {
-                    injectMessageToWeb({
-                        type: 'GEOPHRASE_LOCATION_RESULT',
-                        lat: position.coords.latitude,
-                        lng: position.coords.longitude,
-                    });
-                },
-                () => {
-                    injectMessageToWeb({ type: 'GEOPHRASE_LOCATION_DENIED' });
-                    stopLocationWatch();
-                },
-                { enableHighAccuracy: true, distanceFilter: 10, timeout: 30000 }
-            );
-        };
-
         if (Platform.OS === 'ios') {
-            Geolocation.requestAuthorization(
-                () => startWatching(),
-                () => injectMessageToWeb({ type: 'GEOPHRASE_LOCATION_DENIED' })
-            );
-        } else if (Platform.OS === 'android') {
+            // On iOS, requestAuthorization's success/error callbacks are not
+            // guaranteed to fire when permission is already granted. Kick it
+            // off as a prompt-if-needed call, then start the watch immediately.
+            // watchPosition will surface any actual denial via its error path.
+            Geolocation.requestAuthorization(() => {}, () => {});
+            startWatching();
+            return;
+        }
+
+        if (Platform.OS === 'android') {
             const granted = await PermissionsAndroid.request(
                 PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
             );
@@ -210,7 +218,6 @@ const GeophraseConnect = ({
             stopLocationWatch();
 
             if (mode === 'server') {
-                // Hand the raw token to the merchant for backend exchange
                 safeCall(onSuccess, { token: data.token });
             } else {
                 handleTokenResolution(data.token);
@@ -235,28 +242,25 @@ const GeophraseConnect = ({
         <Modal
             visible={visible}
             animationType="slide"
-            transparent
-            // statusBarTranslucent={true}  // TODO: Check Android
             onRequestClose={handleClose}
         >
-            <View style={styles.container}>
-                <View style={[styles.webviewContainer, { backgroundColor }]}>
-                    <WebView
-                        ref={webviewRef}
-                        source={getSource()}
-                        onMessage={onMessage}
-                        javaScriptEnabled
-                        bounces={false}
-                        showsVerticalScrollIndicator={false}
-                        onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
-                        startInLoadingState
-                        renderLoading={() => (
-                            <View style={[styles.loadingContainer, { backgroundColor }]}>
-                                <ActivityIndicator size="large" color={spinnerColor} />
-                            </View>
-                        )}
-                    />
-                </View>
+            <View style={[styles.container, { backgroundColor }]}>
+                <WebView
+                    ref={webviewRef}
+                    source={getSource()}
+                    onMessage={onMessage}
+                    javaScriptEnabled
+                    bounces={false}
+                    showsVerticalScrollIndicator={false}
+                    onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
+                    startInLoadingState
+                    renderLoading={() => (
+                        <View style={[styles.loadingContainer, { backgroundColor }]}>
+                            <ActivityIndicator size="large" color={spinnerColor} />
+                        </View>
+                    )}
+                    style={{ backgroundColor }}
+                />
             </View>
         </Modal>
     );
@@ -264,12 +268,7 @@ const GeophraseConnect = ({
 
 const styles = StyleSheet.create({
     container: {
-        flex: 1
-    },
-    webviewContainer: {
-        width: '100%',
         flex: 1,
-        overflow: 'hidden',
     },
     loadingContainer: {
         position: 'absolute',
