@@ -7,9 +7,10 @@ This example is configured to use `mode="server"`, meaning you can run it immedi
 ## 🚀 How to Run
 
 ### 1. Install Dependencies
-Navigate to this directory and install the node modules:
+Make sure you navigate into the `example` directory from the root of the repository before installing the node modules:
 
 ```bash
+cd example
 npm install
 ```
 
@@ -17,20 +18,20 @@ npm install
 If you are testing on iOS, you must install the native CocoaPods for the Webview and Geolocation modules:
 
 ```bash
-cd ios
-bundle exec pod install
-cd ..
-```
-
-*Note: You must also add the following location permission to your `ios/AppName/Info.plist`:*
-
-```xml
-<key>NSLocationWhenInUseUsageDescription</key>
-<string>We need your location to accurately place the delivery pin.</string>
+npx pod-install
 ```
 
 ### 3. Start the App
-Start the Metro bundler and boot up your preferred emulator:
+You will need two terminal windows to run the app.
+
+**Terminal 1: Start the Metro Bundler**
+Leave this terminal open and running in the background:
+```bash
+npm start
+```
+
+**Terminal 2: Boot the Emulator**
+In a new terminal window, build and launch the app:
 
 **For iOS:**
 ```bash
