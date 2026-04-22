@@ -20,7 +20,7 @@ npm install @geophrase/react-native react-native-webview react-native-device-inf
 ### iOS
 
 ```bash
-cd ios && bundle exec pod install
+npx pod-install
 ```
 
 Add to `ios/AppName/Info.plist`:
