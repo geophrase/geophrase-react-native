@@ -236,6 +236,7 @@ const GeophraseConnect = ({
             visible={visible}
             animationType="slide"
             transparent
+            // statusBarTranslucent={true}  // TODO: Check Android
             onRequestClose={handleClose}
         >
             <View style={styles.container}>
@@ -263,15 +264,11 @@ const GeophraseConnect = ({
 
 const styles = StyleSheet.create({
     container: {
-        flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.6)',
-        justifyContent: 'flex-end',
+        flex: 1
     },
     webviewContainer: {
         width: '100%',
-        height: '90%',
-        borderTopLeftRadius: 20,
-        borderTopRightRadius: 20,
+        flex: 1,
         overflow: 'hidden',
     },
     loadingContainer: {
