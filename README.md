@@ -3,163 +3,146 @@
 ![npm version](https://img.shields.io/npm/v/@geophrase/react-native)
 ![license](https://img.shields.io/npm/l/@geophrase/react-native)
 
-The official React Native SDK for **Geophrase Connect**.
+Drop-in address selector for React Native apps serving Indian customers. Captures perfectly structured addresses and GPS coordinates to reduce Return to Origin (RTO) costs.
 
-Seamlessly integrate highly accurate, backend-less address and location selection into your React Native applications. This SDK handles the complex WebView bridging, native GPS permissions, and secure token resolution out of the box.
+📖 **[Full documentation and integration guide](https://business.geophrase.com/docs)**
 
-## 🧠 How It Works
-
-1. You open the Geophrase modal using the `visible` prop.
-2. The user selects their precise location on the map.
-3. The SDK automatically resolves the token securely.
-4. You receive the final address object in `onSuccess`.
+*Also building for web? See [`@geophrase/core`](https://www.npmjs.com/package/@geophrase/core) and [`@geophrase/react`](https://www.npmjs.com/package/@geophrase/react).*
 
 ---
 
-## 🚀 Installation
+## Install
 
-Install the package via npm or yarn:
+```bash
+npm install @geophrase/react-native react-native-webview react-native-device-info @react-native-community/geolocation
+```
 
-~~~bash
-npm install @geophrase/react-native
-~~~
+### iOS
 
-### Peer Dependencies
-Because this SDK uses native device features, you must ensure the following peer dependencies are installed in your app:
-
-~~~bash
-npm install react-native-webview react-native-device-info @react-native-community/geolocation
-~~~
-
-**For iOS:** 1. Install the CocoaPods:
-~~~bash
+```bash
 npx pod-install
-~~~
-2. Add the location privacy key to your `ios/AppName/Info.plist` file:
-~~~xml
+```
+
+Add to `ios/AppName/Info.plist`:
+
+```xml
 <key>NSLocationWhenInUseUsageDescription</key>
 <string>We need your location to accurately place the delivery pin.</string>
-~~~
+```
 
-**For Android:** Ensure your `AndroidManifest.xml` includes location permissions:
-~~~xml
+### Android
+
+Add to `android/app/src/main/AndroidManifest.xml`:
+
+```xml
 <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-~~~
+```
 
 ---
 
-## 💻 Quick Start
+## Quick Start
 
-The SDK is completely headless regarding your UI. You control the button, the layout, and the state; the SDK simply renders an invisible wrapper and the popup modal when requested.
+The snippet below uses `mode="server"` so you can drop it into your app and see the widget **without creating an API key first**. Switching to client mode is a two-line change — see the inline comment.
 
-~~~javascript
+```jsx
 import React, { useState } from 'react';
-import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { View, Button } from 'react-native';
 import { GeophraseConnect } from '@geophrase/react-native';
 
-export default function App() {
-    const [isWidgetOpen, setIsWidgetOpen] = useState(false);
-    const [addressData, setAddressData] = useState(null);
+export default function Checkout() {
+    const [visible, setVisible] = useState(false);
+    const [result, setResult] = useState(null);
 
     return (
-        <View style={styles.container}>
-            <TouchableOpacity 
-                style={styles.button} 
-                onPress={() => setIsWidgetOpen(true)}
-            >
-                <Text style={styles.buttonText}>Select Exact Delivery Location</Text>
-            </TouchableOpacity>
+        <View>
+            <Button title="Select Delivery Location" onPress={() => setVisible(true)} />
 
-            <GeophraseConnect 
-                visible={isWidgetOpen}
-                mode="client"       // 'client' (default) or 'server'
-                theme="system"      // 'light', 'dark', or 'system'
-                apiKey="YOUR_API_KEY" // Required for client mode
-                orderId="ORD-12345" 
-                phone="9999999999"  
+            <GeophraseConnect
+                visible={visible}
+
+                // 'server' (used here): widget returns a token. Pass it to your backend to resolve the address. No apiKey needed.
+                // 'client' (default):   widget resolves and returns the full address directly. Requires 'apiKey'.
+                mode="server"
+
+                // apiKey="YOUR_API_KEY"    // required when mode="client"
+                theme="system"              // 'light' | 'dark' | 'system'
+                orderId="ORD-98765"         // your internal reference ID
+                phone="9999999999"          // prefills the phone field
+
                 onSuccess={(result) => {
-                    // Result is Address (Client mode) or Token (Server mode)
-                    console.log("Success:", result);
-                    setAddressData(result);
-                    setIsWidgetOpen(false);
+                    // server mode → { token: "..." }. POST to your backend.
+                    // client mode → full address object.
+                    setResult(result);
+                    setVisible(false);
                 }}
-                onError={(error) => {
-                    console.error("Geophrase Error:", error.message);
-                }}
-                onClose={() => setIsWidgetOpen(false)}
+                onError={(error) => console.error('Geophrase error:', error.message)}
+                onClose={() => setVisible(false)}
             />
         </View>
     );
 }
-
-const styles = StyleSheet.create({
-    container: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
-    button: { backgroundColor: '#000', padding: 15, borderRadius: 8 },
-    buttonText: { color: '#fff', fontWeight: 'bold' }
-});
-~~~
+```
 
 ---
 
-## ⚙️ API Reference
+## Props
 
-### `GeophraseConnect` Props
+| Prop | Type | Default | Required | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| `visible` | `boolean` | - | **Yes** | Controls the visibility of the widget modal. |
+| `mode` | `string` | `'client'` | No | `'client'` resolves the address in the app. `'server'` returns a token for your backend to exchange. |
+| `apiKey` | `string` | - | **Conditional** | Your [Geophrase API key](https://business.geophrase.com/docs/api-keys). Required when `mode="client"`. |
+| `theme` | `string` | `'system'` | No | `'light'`, `'dark'`, or `'system'` (follows OS preference). |
+| `orderId` | `string` | - | No | Your internal reference ID for this session. |
+| `phone` | `string` | - | No | Pre-fills the phone field with a 10-digit Indian mobile number. |
+| `onSuccess` | `function` | - | **Yes** | Receives an `Address` object in client mode, or `{ token }` in server mode. |
+| `onError` | `function` | - | No | Receives `{ type, status?, message }` on API or network errors. |
+| `onClose` | `function` | - | No | Called when the user dismisses the widget without selecting an address. |
 
-| Prop | Type | Required | Description |
-| :--- | :--- | :---: | :--- |
-| `visible` | `boolean` | **Yes** | Controls the visibility of the Geophrase map modal. |
-| `mode` | `string` | No | `'client'` (default) or `'server'`. Determines architectural flow. |
-| `theme` | `string` | No | `'light'`, `'dark'`, or `'system'`. Controls WebView background. |
-| `apiKey` | `string` | **Cond.** | Your API Key. **Required if `mode` is `'client'`.** Omit for server mode. |
-| `orderId` | `string` | No | Your internal tracking ID for the order/session. |
-| `phone` | `string` | No | Prefills the user's phone number in the widget. |
-| `onSuccess` | `function` | **Yes** | Returns an `Address` (`client`) or `Token` (`server`). |
-| `onError` | `function` | No | Callback fired if network or validation errors occur. |
-| `onClose` | `function` | No | Callback fired when the user manually closes the widget. |
+> The credential prop is named `apiKey` rather than `key` because `key` is reserved by React for list reconciliation.
+
+TypeScript definitions (`GeophraseConnectProps`, `GeophraseAddress`, `GeophraseToken`, `GeophraseError`) ship with the package.
 
 ---
 
-## 📦 Data Structures
+## Response payloads
 
-### 1. Client Mode Payload (Default)
-When `mode="client"`, the SDK resolves the full geographic data directly:
-~~~json
+### Client mode
+
+```json
 {
   "phrase": "eid-hiu-sac",
+  "verified_account_mobile_num": "9999999999",
   "address_type": "OFFICE",
   "contact_full_name": "Rohan",
   "contact_mobile_num": "9999999999",
   "address_line_one": "Floor 99",
   "address_line_two": "GTB Building",
+  "landmark": "Map: gphr.in/eid-hiu-sac",
   "city": "Delhi",
   "state": "Delhi",
   "postal_code": 110007,
   "latitude": 16.241303391104953,
-  "longitude": 99.7836155238037
+  "longitude": 99.7836155238037,
+  "digi_pin": "202-P85-M87C",
+  "qr_code": "https://storage.googleapis.com/geophrase/qr-codes/eid-hiu-sac.png"
 }
-~~~
+```
 
-### 2. Server Mode Payload (Token Exchange Flow)
-When `mode="server"`, the SDK safely halts before exposing API logic to the frontend and returns a secure token:
-~~~json
+### Server mode
+
+```json
 {
-  "token": "gphr_tok_5f8a9b2c1d4e..."
+  "token": "d098dc34-8995-4c07-b10c-1abcade94651"
 }
-~~~
-*You must then pass this token to your backend server, where you can securely exchange it for the full address object using your API Key.*
+```
+
+Pass this token to your backend, where you can exchange it for the full address object using your Geophrase API key.
 
 ---
 
-## 🔒 Security Note
+## Which mode should I use?
 
-**The Client-Side Flow (`mode="client"`):**
-The `apiKey` used in the frontend configuration is your Geophrase API Key. Because React Native code can be reverse-engineered, you **must** actively protect your keys from unauthorized use. In your Geophrase Business Dashboard, generate a uniquely restricted API Key specifically bound to your app's Bundle Identifier (`com.yourapp.bundle`) or Android Package Name.
+**Have a backend? Use `mode="server"`.** Your API key stays on your server. Combined with server IP whitelisting in the Geophrase dashboard, only requests from your own backend can use the key — the most secure configuration.
 
-**The Server-Side Flow (`mode="server"`):**
-While we use strict bundle/package restrictions to protect your API keys in client mode, the absolute best practice—if your mobile app communicates with a backend—is to keep your API keys entirely out of the application binary. By using Server Mode, you omit the `apiKey` prop completely. The SDK returns a secure token to the app, which you then safely resolve from your own backend server.
-
----
-
-## 📚 Full Documentation
-
-For advanced configurations, server-side token resolution, and detailed API responses, please visit the official documentation at **[business.geophrase.com/docs](https://business.geophrase.com/docs)**.
+**No backend? Use `mode="client"` with strict restrictions.** The SDK automatically sends your app's Bundle Identifier (iOS) or Package Name (Android) with every request. Bind your API key to those in the Geophrase dashboard, and a key lifted from your binary is useless in a different app.
