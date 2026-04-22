@@ -241,7 +241,7 @@ const GeophraseConnect = ({
     return (
         <Modal
             visible={visible}
-            animationType="slide"
+            animationType="none"
             onRequestClose={handleClose}
         >
             <View style={[styles.container, { backgroundColor }]}>
