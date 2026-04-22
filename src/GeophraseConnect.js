@@ -1,11 +1,28 @@
 import React, { useRef, useEffect } from 'react';
-import { Modal, StyleSheet, View, Platform, PermissionsAndroid, ActivityIndicator } from 'react-native';
+import {
+    Modal,
+    StyleSheet,
+    View,
+    Platform,
+    PermissionsAndroid,
+    ActivityIndicator,
+    useColorScheme,
+} from 'react-native';
 import { WebView } from 'react-native-webview';
 import DeviceInfo from 'react-native-device-info';
 import Geolocation from '@react-native-community/geolocation';
 
-const API_BASE = 'https://api.geophrase.com';
-const WIDGET_ORIGIN = 'https://connect.geophrase.com';
+const DEFAULT_WIDGET_ORIGIN = 'https://connect.geophrase.com';
+const DEFAULT_API_BASE = 'https://api.geophrase.com';
+
+const safeCall = (fn, payload) => {
+    if (typeof fn !== 'function') return;
+    try {
+        fn(payload);
+    } catch (err) {
+        console.error('Geophrase: merchant callback threw an error', err);
+    }
+};
 
 const GeophraseConnect = ({
                               visible,
@@ -17,32 +34,46 @@ const GeophraseConnect = ({
                               onSuccess,
                               onError,
                               onClose,
+                              _endpoints,
                           }) => {
     const webviewRef = useRef(null);
     const watchIdRef = useRef(null);
 
-    // 1. Strict Validation Warnings
+    const widgetOrigin = _endpoints?.widgetOrigin || DEFAULT_WIDGET_ORIGIN;
+    const apiBase = _endpoints?.apiBase || DEFAULT_API_BASE;
+
+    // Resolve theme against OS preference so the modal background matches the
+    // widget's first paint (prevents a white flash on dark-OS when theme is
+    // 'system' or unspecified).
+    const systemScheme = useColorScheme();
+    const resolvedTheme =
+        theme === 'light' ? 'light' :
+            theme === 'dark' ? 'dark' :
+                systemScheme === 'dark' ? 'dark' : 'light';
+    const backgroundColor = resolvedTheme === 'dark' ? '#121212' : '#ffffff';
+    const spinnerColor = resolvedTheme === 'dark' ? '#ffffff' : '#000000';
+
+    // Validation — runs when the widget opens
     useEffect(() => {
-        if (visible) {
-            if (!['client', 'server'].includes(mode)) {
-                console.error(`Geophrase Error: Invalid mode '${mode}'. Expected 'client' or 'server'.`);
-            }
-            if (mode === 'client' && !apiKey) {
-                console.error("Geophrase Error: 'apiKey' is required when mode is 'client'.");
-            }
-            if (mode === 'server' && apiKey) {
-                console.warn("Geophrase Warning: 'apiKey' is ignored when mode is 'server'. Ensure you are not exposing a secure key in your frontend.");
-            }
-            if (theme && !['light', 'dark', 'system'].includes(theme)) {
-                console.warn(`Geophrase Warning: Invalid theme '${theme}'. Falling back to default.`);
-            }
+        if (!visible) return;
+
+        if (!['client', 'server'].includes(mode)) {
+            console.error(`Geophrase Error: Invalid mode '${mode}'. Expected 'client' or 'server'.`);
+        }
+        if (mode === 'client' && !apiKey) {
+            console.error("Geophrase Error: 'apiKey' is required when mode is 'client'.");
+        }
+        if (mode === 'server' && apiKey) {
+            console.warn("Geophrase Warning: 'apiKey' is ignored when mode is 'server'. Ensure you are not exposing a secret key in your frontend.");
+        }
+        if (theme && !['light', 'dark', 'system'].includes(theme)) {
+            console.warn(`Geophrase Warning: Invalid theme '${theme}'. Falling back to default.`);
         }
     }, [visible, mode, apiKey, theme]);
 
+    // Stop watching location when the widget closes or unmounts
     useEffect(() => {
-        if (!visible) {
-            stopLocationWatch();
-        }
+        if (!visible) stopLocationWatch();
         return () => stopLocationWatch();
     }, [visible]);
 
@@ -54,18 +85,21 @@ const GeophraseConnect = ({
     };
 
     const getSource = () => {
-        if (!visible) {
-            return { html: '' };
-        }
+        if (!visible) return { html: '' };
 
-        let url = `${WIDGET_ORIGIN}?platform=mobile`;
+        let url = `${widgetOrigin}?platform=mobile`;
         if (orderId) url += `&order-id=${encodeURIComponent(orderId)}`;
-        if (phone) url += `&phone=${encodeURIComponent(phone)}`;
-        if (theme) url += `&theme=${encodeURIComponent(theme)}`;
+        if (phone)   url += `&phone=${encodeURIComponent(phone)}`;
+        if (theme)   url += `&theme=${encodeURIComponent(theme)}`;
         return { uri: url };
     };
 
-    // 2. Fixed iOS Permission Flow
+    const injectMessageToWeb = (data) => {
+        if (!webviewRef.current) return;
+        const script = `window.postMessage(${JSON.stringify(data)}, '*'); true;`;
+        webviewRef.current.injectJavaScript(script);
+    };
+
     const handleLocationRequest = async () => {
         stopLocationWatch();
 
@@ -75,25 +109,21 @@ const GeophraseConnect = ({
                     injectMessageToWeb({
                         type: 'GEOPHRASE_LOCATION_RESULT',
                         lat: position.coords.latitude,
-                        lng: position.coords.longitude
+                        lng: position.coords.longitude,
                     });
                 },
-                (error) => {
+                () => {
                     injectMessageToWeb({ type: 'GEOPHRASE_LOCATION_DENIED' });
                     stopLocationWatch();
                 },
-                {
-                    enableHighAccuracy: true,
-                    distanceFilter: 10,
-                    timeout: 30000
-                }
+                { enableHighAccuracy: true, distanceFilter: 10, timeout: 30000 }
             );
         };
 
         if (Platform.OS === 'ios') {
             Geolocation.requestAuthorization(
                 () => startWatching(),
-                (error) => injectMessageToWeb({ type: 'GEOPHRASE_LOCATION_DENIED' })
+                () => injectMessageToWeb({ type: 'GEOPHRASE_LOCATION_DENIED' })
             );
         } else if (Platform.OS === 'android') {
             const granted = await PermissionsAndroid.request(
@@ -107,13 +137,6 @@ const GeophraseConnect = ({
         }
     };
 
-    const injectMessageToWeb = (data) => {
-        if (webviewRef.current) {
-            const script = `window.postMessage(${JSON.stringify(data)}, '*'); true;`;
-            webviewRef.current?.injectJavaScript(script);
-        }
-    };
-
     const handleTokenResolution = async (token) => {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 15000);
@@ -121,8 +144,8 @@ const GeophraseConnect = ({
         try {
             const bundleId = DeviceInfo.getBundleId();
             const headers = {
-                "X-API-Key": apiKey,
-                "Content-Type": "application/json"
+                'X-API-Key': apiKey,
+                'Content-Type': 'application/json',
             };
 
             if (Platform.OS === 'ios') {
@@ -131,30 +154,29 @@ const GeophraseConnect = ({
                 headers['X-Android-Package'] = bundleId;
             }
 
-            const response = await fetch(`${API_BASE}/business/resolve/`, {
-                method: "POST",
-                headers: headers,
+            const response = await fetch(`${apiBase}/business/resolve/`, {
+                method: 'POST',
+                headers,
                 body: JSON.stringify({ token }),
                 signal: controller.signal,
             });
 
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
-                if (onError) onError({
+                safeCall(onError, {
                     type: 'API_ERROR',
                     status: response.status,
-                    message: errorData.message || `Geophrase API error (${response.status})`
+                    message: errorData.message || `Geophrase API error (${response.status})`,
                 });
                 return;
             }
 
             const responseData = await response.json();
-            if (onSuccess) onSuccess(responseData);
-
+            safeCall(onSuccess, responseData);
         } catch (error) {
-            if (onError) onError({
+            safeCall(onError, {
                 type: 'NETWORK_ERROR',
-                message: error.name === 'AbortError' ? 'Geophrase API request timed out' : error.message
+                message: error.name === 'AbortError' ? 'Geophrase API request timed out' : error.message,
             });
         } finally {
             clearTimeout(timeoutId);
@@ -163,67 +185,73 @@ const GeophraseConnect = ({
 
     const handleClose = () => {
         stopLocationWatch();
-        if (onClose) onClose();
+        safeCall(onClose);
     };
 
     const onMessage = (event) => {
         let data;
         try {
             data = JSON.parse(event.nativeEvent.data);
-        } catch (e) {
+        } catch {
             return;
         }
 
         if (data?.type === 'GEOPHRASE_CLOSE_WIDGET') {
             handleClose();
-        } else if (data?.type === 'GEOPHRASE_REQUEST_LOCATION') {
+            return;
+        }
+
+        if (data?.type === 'GEOPHRASE_REQUEST_LOCATION') {
             handleLocationRequest();
-        } else if (data?.type === 'GEOPHRASE_RESOLUTION_TOKEN') {
-            handleClose();
+            return;
+        }
+
+        if (data?.type === 'GEOPHRASE_RESOLUTION_TOKEN') {
+            stopLocationWatch();
 
             if (mode === 'server') {
-                if (onSuccess) onSuccess({ token: data.token });
+                // Hand the raw token to the merchant for backend exchange
+                safeCall(onSuccess, { token: data.token });
             } else {
                 handleTokenResolution(data.token);
             }
         }
     };
 
+    // Restrict WebView navigation to the Geophrase widget origin
     const onShouldStartLoadWithRequest = (request) => {
         try {
             if (request.url === 'about:blank' || !request.url.startsWith('http')) {
                 return true;
             }
             const url = new URL(request.url);
-            return url.origin === WIDGET_ORIGIN;
+            return url.origin === widgetOrigin;
         } catch {
             return false;
         }
     };
 
-    const modalBackgroundColor = theme === 'dark' ? '#121212' : '#ffffff';
-
     return (
         <Modal
             visible={visible}
             animationType="slide"
-            transparent={true}
+            transparent
             onRequestClose={handleClose}
         >
             <View style={styles.container}>
-                <View style={[styles.webviewContainer, { backgroundColor: modalBackgroundColor }]}>
+                <View style={[styles.webviewContainer, { backgroundColor }]}>
                     <WebView
                         ref={webviewRef}
                         source={getSource()}
                         onMessage={onMessage}
-                        javaScriptEnabled={true}
+                        javaScriptEnabled
                         bounces={false}
                         showsVerticalScrollIndicator={false}
                         onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
-                        startInLoadingState={true}
+                        startInLoadingState
                         renderLoading={() => (
-                            <View style={[styles.loadingContainer, { backgroundColor: modalBackgroundColor }]}>
-                                <ActivityIndicator size="large" color={theme === 'dark' ? '#ffffff' : '#000000'} />
+                            <View style={[styles.loadingContainer, { backgroundColor }]}>
+                                <ActivityIndicator size="large" color={spinnerColor} />
                             </View>
                         )}
                     />
@@ -254,7 +282,7 @@ const styles = StyleSheet.create({
         bottom: 0,
         justifyContent: 'center',
         alignItems: 'center',
-    }
+    },
 });
 
 export default GeophraseConnect;
