@@ -15,6 +15,17 @@ import Geolocation from '@react-native-community/geolocation';
 const DEFAULT_WIDGET_ORIGIN = 'https://connect.geophrase.com';
 const DEFAULT_API_BASE = 'https://api.geophrase.com';
 
+// Prefer Google Play Services' Fused Location Provider on Android. This is
+// what Google Maps uses and what the web `navigator.geolocation` API
+// approximates — it combines GPS, Wi-Fi, and cell towers to produce a fix in
+// seconds, even indoors. Falls back to the native LocationManager if Play
+// Services is unavailable.
+Geolocation.setRNConfiguration({
+    skipPermissionRequests: true, // we handle permission UX ourselves
+    authorizationLevel: 'whenInUse',
+    locationProvider: 'auto',
+});
+
 const safeCall = (fn, payload) => {
     if (typeof fn !== 'function') return;
     try {
@@ -38,6 +49,7 @@ const GeophraseConnect = ({
                           }) => {
     const webviewRef = useRef(null);
     const watchIdRef = useRef(null);
+    const hasGotFixRef = useRef(false);
 
     const widgetOrigin = _endpoints?.widgetOrigin || DEFAULT_WIDGET_ORIGIN;
     const apiBase = _endpoints?.apiBase || DEFAULT_API_BASE;
@@ -100,20 +112,46 @@ const GeophraseConnect = ({
         webviewRef.current.injectJavaScript(script);
     };
 
-    const startWatching = () => {
-        watchIdRef.current = Geolocation.watchPosition(
-            (position) => {
-                injectMessageToWeb({
-                    type: 'GEOPHRASE_LOCATION_RESULT',
-                    lat: position.coords.latitude,
-                    lng: position.coords.longitude,
-                });
-            },
+    const sendFix = (position) => {
+        hasGotFixRef.current = true;
+        injectMessageToWeb({
+            type: 'GEOPHRASE_LOCATION_RESULT',
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+        });
+    };
+
+    // Progressive location strategy, mirroring what browsers and Google Maps
+    // do on the web:
+    //   1. `getCurrentPosition` with low accuracy → fast network fix (~1s),
+    //      works indoors, works on budget phones.
+    //   2. `watchPosition` with high accuracy → refines the fix over time as
+    //      GPS comes online. The widget ignores these updates once the user
+    //      starts dragging the pin.
+    //
+    // DENIED is only signalled if *nothing* produces a fix — a GPS timeout
+    // after a successful network fix is not a denial.
+    const startLocationFlow = () => {
+        stopLocationWatch();
+        hasGotFixRef.current = false;
+
+        // Fast initial fix (network-based, very quick)
+        Geolocation.getCurrentPosition(
+            sendFix,
             () => {
-                // watchPosition itself reports permission denial / GPS failure,
-                // which is what we rely on for iOS when requestAuthorization's
-                // callbacks don't fire on already-authorized devices.
-                injectMessageToWeb({ type: 'GEOPHRASE_LOCATION_DENIED' });
+                // Silent fail — watchPosition may still succeed. If not, its
+                // error path will surface the denial.
+            },
+            { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
+        );
+
+        // Progressive high-accuracy updates
+        watchIdRef.current = Geolocation.watchPosition(
+            sendFix,
+            () => {
+                if (!hasGotFixRef.current) {
+                    injectMessageToWeb({ type: 'GEOPHRASE_LOCATION_DENIED' });
+                }
                 stopLocationWatch();
             },
             { enableHighAccuracy: true, distanceFilter: 10, timeout: 30000 }
@@ -121,15 +159,12 @@ const GeophraseConnect = ({
     };
 
     const handleLocationRequest = async () => {
-        stopLocationWatch();
-
         if (Platform.OS === 'ios') {
-            // On iOS, requestAuthorization's success/error callbacks are not
-            // guaranteed to fire when permission is already granted. Kick it
-            // off as a prompt-if-needed call, then start the watch immediately.
-            // watchPosition will surface any actual denial via its error path.
+            // On iOS, requestAuthorization's callbacks are not guaranteed to
+            // fire when permission is already granted. Kick it off as a
+            // prompt-if-needed call, then start the flow immediately.
             Geolocation.requestAuthorization(() => {}, () => {});
-            startWatching();
+            startLocationFlow();
             return;
         }
 
@@ -138,7 +173,7 @@ const GeophraseConnect = ({
                 PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
             );
             if (granted === PermissionsAndroid.RESULTS.GRANTED) {
-                startWatching();
+                startLocationFlow();
             } else {
                 injectMessageToWeb({ type: 'GEOPHRASE_LOCATION_DENIED' });
             }
