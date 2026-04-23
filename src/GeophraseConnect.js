@@ -6,6 +6,7 @@ import {
     Platform,
     PermissionsAndroid,
     ActivityIndicator,
+    StatusBar,
     useColorScheme,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
@@ -278,7 +279,12 @@ const GeophraseConnect = ({
             visible={visible}
             animationType="none"
             onRequestClose={handleClose}
+            // Android: let the Modal extend behind the status bar so the
+            // widget's own header color (blue in light mode, dark in dark
+            // mode) shows through. Light icons keep legibility on both.
+            statusBarTranslucent
         >
+            <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
             <View style={[styles.container, { backgroundColor }]}>
                 <WebView
                     ref={webviewRef}
