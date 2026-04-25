@@ -5,7 +5,7 @@
 
 Drop-in address selector for React Native apps serving Indian customers. Captures perfectly structured addresses and GPS coordinates to reduce Return to Origin (RTO) costs.
 
-📖 **[Full documentation and integration guide](https://business.geophrase.com/docs)**
+📖 **[Full documentation and integration guide](https://geophrase.com/docs)**
 
 *Also building for web? See [`@geophrase/core`](https://www.npmjs.com/package/@geophrase/core) and [`@geophrase/react`](https://www.npmjs.com/package/@geophrase/react).*
 
@@ -91,7 +91,7 @@ export default function Checkout() {
 | :--- | :--- | :--- | :--- | :--- |
 | `visible` | `boolean` | - | **Yes** | Controls the visibility of the widget modal. |
 | `mode` | `string` | `'client'` | No | `'client'` resolves the address in the app. `'server'` returns a token for your backend to exchange. |
-| `apiKey` | `string` | - | **Conditional** | Your [Geophrase API key](https://business.geophrase.com/docs/api-keys). Required when `mode="client"`. |
+| `apiKey` | `string` | - | **Conditional** | Your [Geophrase API key](https://geophrase.com/docs/api-keys). Required when `mode="client"`. |
 | `theme` | `string` | `'system'` | No | `'light'`, `'dark'`, or `'system'` (follows OS preference). |
 | `orderId` | `string` | - | No | Your internal reference ID for this session. |
 | `phone` | `string` | - | No | Pre-fills the phone field with a 10-digit Indian mobile number. |
