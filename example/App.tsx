@@ -27,7 +27,7 @@ export default function App() {
                 visible={visible}
 
                 // --- MODE ---
-                // 'server' (used here): widget returns a short-lived token. Pass it to your
+                // 'server' (used here): widget returns a short-lived requestId. Pass it to your
                 //   backend to resolve the full address. No apiKey needed in the frontend.
                 // 'client' (default):   widget resolves and returns the full address directly.
                 //   Requires 'apiKey'.
@@ -42,7 +42,7 @@ export default function App() {
 
                 // --- CALLBACKS ---
                 onSuccess={(data) => {
-                    // server mode → data is { token: "..." }. POST this to your backend.
+                    // server mode → data is { requestId: "..." }. POST this to your backend.
                     // client mode → data is the full address object.
                     setResult(data);
                     setVisible(false);

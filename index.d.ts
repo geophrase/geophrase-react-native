@@ -1,33 +1,44 @@
 import * as React from 'react';
 
 /**
- * Fully-resolved address returned in client mode.
+ * Nested address block within a fully-resolved client-mode response.
  * Field names mirror the Geophrase REST API response shape.
  */
-export interface GeophraseAddress {
-    phrase: string;
-    verified_account_mobile_num: string;
-    address_type: string;
-    contact_full_name: string;
-    contact_mobile_num: string;
-    address_line_one: string;
-    address_line_two: string;
-    landmark: string;
+export interface GeophraseAddressDetails {
     city: string;
     state: string;
-    postal_code: number;
+    digi_pin: string;
+    landmark: string;
     latitude: number;
     longitude: number;
-    digi_pin: string;
-    qr_code: string;
+    postal_code: number;
+    address_type: string;
+    address_line_one: string;
+    address_line_two: string;
+    contact_full_name: string;
+    verified_mobile_num: string;
 }
 
 /**
- * Short-lived opaque token returned in server mode.
+ * Fully-resolved address returned in client mode.
+ * All fields are always present; `order_id`, `landmark`, and `address_line_two`
+ * may be empty strings — never `null`.
+ */
+export interface GeophraseAddress {
+    short_code: string;
+    short_link: string;
+    qr_code: string;
+    captured_at: number;
+    order_id: string;
+    address: GeophraseAddressDetails;
+}
+
+/**
+ * Short-lived UUID4 returned in server mode.
  * Forward to your backend to exchange for a GeophraseAddress.
  */
-export interface GeophraseToken {
-    token: string;
+export interface GeophraseRequestId {
+    requestId: string;
 }
 
 export interface GeophraseError {
@@ -40,7 +51,7 @@ export interface GeophraseConnectProps {
     /** Controls whether the widget modal is open. */
     visible: boolean;
 
-    /** 'client' (default) or 'server'. Controls whether the SDK resolves the token itself or hands it to you. */
+    /** 'client' (default) or 'server'. Controls whether the SDK resolves the requestId itself or hands it to you. */
     mode?: 'client' | 'server';
 
     /** Widget theme. Defaults to 'system'. */
@@ -49,7 +60,7 @@ export interface GeophraseConnectProps {
     /** API key. Required when mode is 'client'; omit in server mode. */
     apiKey?: string;
 
-    /** Your internal reference ID; echoed back in the dashboard. */
+    /** Your internal reference ID; echoed back in the dashboard and in the client-mode response. */
     orderId?: string;
 
     /** Prefill the phone field so the user skips one step of OTP entry. */
@@ -58,9 +69,9 @@ export interface GeophraseConnectProps {
     /**
      * Called when the user successfully selects an address.
      * - client mode: receives a GeophraseAddress
-     * - server mode: receives a GeophraseToken
+     * - server mode: receives a GeophraseRequestId
      */
-    onSuccess?: (result: GeophraseAddress | GeophraseToken) => void;
+    onSuccess?: (result: GeophraseAddress | GeophraseRequestId) => void;
 
     /** Called on API, network, or validation errors. */
     onError?: (error: GeophraseError) => void;

@@ -60,7 +60,7 @@ export default function Checkout() {
             <GeophraseConnect
                 visible={visible}
 
-                // 'server' (used here): widget returns a token. Pass it to your backend to resolve the address. No apiKey needed.
+                // 'server' (used here): widget returns a requestId. Pass it to your backend to resolve the address. No apiKey needed.
                 // 'client' (default):   widget resolves and returns the full address directly. Requires 'apiKey'.
                 mode="server"
 
@@ -70,7 +70,7 @@ export default function Checkout() {
                 phone="9999999999"          // prefills the phone field
 
                 onSuccess={(result) => {
-                    // server mode → { token: "..." }. POST to your backend.
+                    // server mode → { requestId: "..." }. POST to your backend.
                     // client mode → full address object.
                     setResult(result);
                     setVisible(false);
@@ -95,13 +95,13 @@ export default function Checkout() {
 | `theme` | `string` | `'system'` | No | `'light'`, `'dark'`, or `'system'` (follows OS preference). |
 | `orderId` | `string` | - | No | Your internal reference ID for this session. |
 | `phone` | `string` | - | No | Pre-fills the phone field with a 10-digit Indian mobile number. |
-| `onSuccess` | `function` | - | **Yes** | Receives an `Address` object in client mode, or `{ token }` in server mode. |
+| `onSuccess` | `function` | - | **Yes** | Receives an `Address` object in client mode, or `{ requestId }` in server mode. |
 | `onError` | `function` | - | No | Receives `{ type, status?, message }` on API or network errors. |
 | `onClose` | `function` | - | No | Called when the user dismisses the widget without selecting an address. |
 
 > The credential prop is named `apiKey` rather than `key` because `key` is reserved by React for list reconciliation.
 
-TypeScript definitions (`GeophraseConnectProps`, `GeophraseAddress`, `GeophraseToken`, `GeophraseError`) ship with the package.
+TypeScript definitions (`GeophraseConnectProps`, `GeophraseAddress`, `GeophraseRequestId`, `GeophraseError`) ship with the package.
 
 ---
 
@@ -111,33 +111,39 @@ TypeScript definitions (`GeophraseConnectProps`, `GeophraseAddress`, `GeophraseT
 
 ```json
 {
-  "phrase": "eid-hiu-sac",
-  "verified_account_mobile_num": "9999999999",
-  "address_type": "OFFICE",
-  "contact_full_name": "Rohan",
-  "contact_mobile_num": "9999999999",
-  "address_line_one": "Floor 99",
-  "address_line_two": "GTB Building",
-  "landmark": "Map: gphr.in/eid-hiu-sac",
-  "city": "Delhi",
-  "state": "Delhi",
-  "postal_code": 110007,
-  "latitude": 16.241303391104953,
-  "longitude": 99.7836155238037,
-  "digi_pin": "202-P85-M87C",
-  "qr_code": "https://storage.googleapis.com/geophrase/qr-codes/eid-hiu-sac.png"
+  "short_code": "e6v9th",
+  "short_link": "https://gphr.in/e6v9th",
+  "qr_code": "https://storage.googleapis.com/geophrase/qr-codes/e6v9th.png",
+  "captured_at": 1778485231452,
+  "order_id": "ORD-8786",
+  "address": {
+    "city": "Dhubri",
+    "state": "Assam",
+    "digi_pin": "272-P83-4648",
+    "landmark": "Map: gphr.in/e6v9th",
+    "latitude": 26.2510677,
+    "longitude": 89.7746059,
+    "postal_code": 783335,
+    "address_type": "HOUSE",
+    "address_line_one": "sdcsdc",
+    "address_line_two": "sdcdfvcsdcsdc",
+    "contact_full_name": "sdcsdc",
+    "verified_mobile_num": "9999999999"
+  }
 }
 ```
+
+All fields are always present. `order_id` is an empty string when `orderId` was not supplied as a prop. `landmark` and `address_line_two` may be empty strings. No field is ever `null`.
 
 ### Server mode
 
 ```json
 {
-  "token": "d098dc34-8995-4c07-b10c-1abcade94651"
+  "requestId": "6cafc00f-30ff-48f8-97c2-61e3da8f0acf"
 }
 ```
 
-Pass this token to your backend, where you can exchange it for the full address object using your Geophrase API key.
+Pass this `requestId` to your backend, where you can exchange it for the full address object using your Geophrase API key.
 
 ---
 

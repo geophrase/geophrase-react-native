@@ -100,7 +100,6 @@ const GeophraseConnect = ({
         if (!visible) return { html: '' };
 
         let url = `${widgetOrigin}?platform=mobile`;
-        if (orderId) url += `&order-id=${encodeURIComponent(orderId)}`;
         if (phone)   url += `&phone=${encodeURIComponent(phone)}`;
         if (theme)   url += `&theme=${encodeURIComponent(theme)}`;
         return { uri: url };
@@ -180,7 +179,7 @@ const GeophraseConnect = ({
         }
     };
 
-    const handleTokenResolution = async (token) => {
+    const handleRequestIdResolution = async (requestId) => {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 15000);
 
@@ -197,10 +196,13 @@ const GeophraseConnect = ({
                 headers['X-Android-Package'] = bundleId;
             }
 
+            const payload = { request_id: requestId };
+            if (orderId) payload.order_id = orderId;
+
             const response = await fetch(`${apiBase}/business/resolve/`, {
                 method: 'POST',
                 headers,
-                body: JSON.stringify({ token }),
+                body: JSON.stringify(payload),
                 signal: controller.signal,
             });
 
@@ -253,9 +255,9 @@ const GeophraseConnect = ({
             stopLocationWatch();
 
             if (mode === 'server') {
-                safeCall(onSuccess, { token: data.token });
+                safeCall(onSuccess, { requestId: data.requestId });
             } else {
-                handleTokenResolution(data.token);
+                handleRequestIdResolution(data.requestId);
             }
         }
     };
