@@ -154,4 +154,4 @@ Pass this `requestId` to your backend, where you can exchange it for the full ad
 
 **Have a backend? Use `mode="server"`.** Your API key stays on your server. Combined with server IP whitelisting in the Geophrase dashboard, only requests from your own backend can use the key — the most secure configuration.
 
-**No backend? Use `mode="client"` with strict restrictions.** The SDK automatically sends your app's Bundle Identifier (iOS) or Package Name (Android) with every request. Bind your API key to those in the Geophrase dashboard, and a key lifted from your binary is useless in a different app.
+**No backend? Use `mode="client"` with strict restrictions.** The SDK automatically sends your app's Bundle Identifier (iOS) or Package Name (Android) with every request. Restrict your key to it in the Geophrase dashboard, and a key lifted from your binary is useless in a different app. A key carries only one restriction type, so create a **separate key for iOS and Android**.
