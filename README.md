@@ -42,7 +42,7 @@ Add to `android/app/src/main/AndroidManifest.xml`:
 
 ## Quick Start
 
-The snippet below uses `mode="server"` so you can drop it into your app and see the widget **without creating an API key first**. Switching to client mode is a two-line change — see the inline comment.
+The snippet below uses `mode="server"`, so the only credential you need in the app is your public **Key ID** — no secret API key. Switching to client mode is a two-line change — see the inline comment.
 
 ```jsx
 import React, { useState } from 'react';
@@ -60,11 +60,13 @@ export default function Checkout() {
             <GeophraseConnect
                 visible={visible}
 
-                // 'server' (used here): widget returns a requestId. Pass it to your backend to resolve the address. No apiKey needed.
+                apiKeyId="YOUR_API_KEY_ID"     // required in both modes — your public Key ID
+
+                // 'server' (used here): widget returns a requestId. Pass it to your backend to resolve the address. No secret key needed.
                 // 'client' (default):   widget resolves and returns the full address directly. Requires 'apiKey'.
                 mode="server"
 
-                // apiKey="YOUR_API_KEY"    // required when mode="client"
+                // apiKey="YOUR_API_KEY"    // secret key, required when mode="client"
                 theme="system"              // 'light' | 'dark' | 'system'
                 orderId="ORD-98765"         // your internal reference ID
                 phone="9999999999"          // prefills the phone field
@@ -90,8 +92,9 @@ export default function Checkout() {
 | Prop | Type | Default | Required | Description |
 | :--- | :--- | :--- | :--- | :--- |
 | `visible` | `boolean` | - | **Yes** | Controls the visibility of the widget modal. |
+| `apiKeyId` | `string` | - | **Yes** | Your 8-character public [Key ID](https://geophrase.com/docs/api-keys) (shown in the dashboard). Required in **both** modes; identifies your account to the widget. |
 | `mode` | `string` | `'client'` | No | `'client'` resolves the address in the app. `'server'` returns a token for your backend to exchange. |
-| `apiKey` | `string` | - | **Conditional** | Your [Geophrase API key](https://geophrase.com/docs/api-keys). Required when `mode="client"`. |
+| `apiKey` | `string` | - | **Conditional** | Your secret [Geophrase API key](https://geophrase.com/docs/api-keys) (the full key string). Required when `mode="client"`. |
 | `theme` | `string` | `'system'` | No | `'light'`, `'dark'`, or `'system'` (follows OS preference). |
 | `orderId` | `string` | - | No | Your internal reference ID for this session. |
 | `phone` | `string` | - | No | Pre-fills the phone field with a 10-digit Indian mobile number. |
@@ -99,7 +102,7 @@ export default function Checkout() {
 | `onError` | `function` | - | No | Receives `{ type, status?, message }` on API or network errors. |
 | `onClose` | `function` | - | No | Called when the user dismisses the widget without selecting an address. |
 
-> The credential prop is named `apiKey` rather than `key` because `key` is reserved by React for list reconciliation.
+> Two distinct credentials: `apiKeyId` is your **public** Key ID (safe to ship in the app, required in both modes), while `apiKey` is your **secret** key (client mode only). The secret prop is named `apiKey` rather than `key` because `key` is reserved by React for list reconciliation.
 
 TypeScript definitions (`GeophraseConnectProps`, `GeophraseAddress`, `GeophraseRequestId`, `GeophraseError`) ship with the package.
 

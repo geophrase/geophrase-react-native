@@ -37,6 +37,7 @@ const safeCall = (fn, payload) => {
 
 const GeophraseConnect = ({
                               visible,
+                              apiKeyId,
                               mode = 'client',
                               theme,
                               apiKey,
@@ -72,6 +73,11 @@ const GeophraseConnect = ({
         if (!['client', 'server'].includes(mode)) {
             console.error(`Geophrase Error: Invalid mode '${mode}'. Expected 'client' or 'server'.`);
         }
+        if (!apiKeyId) {
+            console.error("Geophrase Error: 'apiKeyId' is required.");
+        } else if (typeof apiKeyId !== 'string' || apiKeyId.length !== 8) {
+            console.error("Geophrase Error: 'apiKeyId' must be an 8-character string.");
+        }
         if (mode === 'client' && !apiKey) {
             console.error("Geophrase Error: 'apiKey' is required when mode is 'client'.");
         }
@@ -81,7 +87,7 @@ const GeophraseConnect = ({
         if (theme && !['light', 'dark', 'system'].includes(theme)) {
             console.warn(`Geophrase Warning: Invalid theme '${theme}'. Falling back to default.`);
         }
-    }, [visible, mode, apiKey, theme]);
+    }, [visible, apiKeyId, mode, apiKey, theme]);
 
     // Stop watching location when the widget closes or unmounts
     useEffect(() => {
@@ -100,6 +106,7 @@ const GeophraseConnect = ({
         if (!visible) return { html: '' };
 
         let url = `${widgetOrigin}?platform=mobile`;
+        if (apiKeyId)   url += `&key-id=${encodeURIComponent(apiKeyId)}`;
         if (phone)   url += `&phone=${encodeURIComponent(phone)}`;
         if (theme)   url += `&theme=${encodeURIComponent(theme)}`;
         return { uri: url };

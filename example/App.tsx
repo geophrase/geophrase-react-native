@@ -26,14 +26,17 @@ export default function App() {
             <GeophraseConnect
                 visible={visible}
 
+                // Required in every mode — your 8-character public Key ID from the dashboard.
+                apiKeyId="YOUR_API_KEY_ID"
+
                 // --- MODE ---
                 // 'server' (used here): widget returns a short-lived requestId. Pass it to your
-                //   backend to resolve the full address. No apiKey needed in the frontend.
+                //   backend to resolve the full address. No secret apiKey needed in the frontend.
                 // 'client' (default):   widget resolves and returns the full address directly.
                 //   Requires 'apiKey'.
                 mode="server"
 
-                // apiKey="YOUR_API_KEY"  // required when mode="client"
+                // apiKey="YOUR_API_KEY"  // secret key, required when mode="client"
 
                 // --- OPTIONAL ---
                 theme="system"            // 'light' | 'dark' | 'system' (follows OS preference)

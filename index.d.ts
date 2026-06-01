@@ -51,13 +51,16 @@ export interface GeophraseConnectProps {
     /** Controls whether the widget modal is open. */
     visible: boolean;
 
+    /** Your 8-character public Key ID (shown in the dashboard). Required in both modes; identifies your account to the widget. */
+    apiKeyId: string;
+
     /** 'client' (default) or 'server'. Controls whether the SDK resolves the requestId itself or hands it to you. */
     mode?: 'client' | 'server';
 
     /** Widget theme. Defaults to 'system'. */
     theme?: 'light' | 'dark' | 'system';
 
-    /** API key. Required when mode is 'client'; omit in server mode. */
+    /** Secret API key. Required when mode is 'client'; omit in server mode. */
     apiKey?: string;
 
     /** Your internal reference ID; echoed back in the dashboard and in the client-mode response. */
