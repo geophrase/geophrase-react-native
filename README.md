@@ -7,6 +7,8 @@ Drop-in address selector for React Native apps serving Indian customers. Capture
 
 📖 **[Full documentation and integration guide](https://geophrase.com/docs)**
 
+🗺️ **[How GPS address capture works with couriers or your own riders](https://geophrase.com/features/gps-address-capture)**
+
 *Also building for web? See [`@geophrase/core`](https://www.npmjs.com/package/@geophrase/core) and [`@geophrase/react`](https://www.npmjs.com/package/@geophrase/react).*
 
 ---
