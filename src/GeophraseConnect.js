@@ -42,6 +42,7 @@ const GeophraseConnect = ({
                               theme,
                               apiKey,
                               orderId,
+                              noteForAgent,
                               phone,
                               onSuccess,
                               onError,
@@ -205,6 +206,8 @@ const GeophraseConnect = ({
 
             const payload = { request_id: requestId };
             if (orderId) payload.order_id = orderId;
+            // Cut to the API's limit: a longer note would fail the whole address capture.
+            if (noteForAgent) payload.note_for_agent = String(noteForAgent).slice(0, 300);
 
             const response = await fetch(`${apiBase}/business/resolve/`, {
                 method: 'POST',

@@ -99,6 +99,7 @@ export default function Checkout() {
 | `apiKey` | `string` | - | **Conditional** | Your secret [Geophrase API key](https://geophrase.com/docs/api-keys) (the full key string). Required when `mode="client"`. |
 | `theme` | `string` | `'system'` | No | `'light'`, `'dark'`, or `'system'` (follows OS preference). |
 | `orderId` | `string` | - | No | Your internal reference ID for this session. |
+| `noteForAgent` | `string` | - | No | Note shown to your delivery agent, never to the customer. Client mode only; notes over 300 characters are cut. It is sent from the customer's device, so the customer can change it; send payment instructions, such as cash to collect, from your server or the dashboard. In server mode, send `note_for_agent` with your [resolve call](https://geophrase.com/docs/resolve-endpoint). |
 | `phone` | `string` | - | No | Pre-fills the phone field with a 10-digit Indian mobile number. |
 | `onSuccess` | `function` | - | **Yes** | Receives an `Address` object in client mode, or `{ requestId }` in server mode. |
 | `onError` | `function` | - | No | Receives `{ type, status?, message }` on API or network errors. |

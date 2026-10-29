@@ -66,6 +66,12 @@ export interface GeophraseConnectProps {
     /** Your internal reference ID; echoed back in the dashboard and in the client-mode response. */
     orderId?: string;
 
+    /**
+     * Client mode only. Note shown to your delivery agent, never to the customer.
+     * Sent from the customer's device, so the customer can change it. Cut to 300 characters.
+     */
+    noteForAgent?: string;
+
     /** Prefill the phone field so the user skips one step of OTP entry. */
     phone?: string;
 
