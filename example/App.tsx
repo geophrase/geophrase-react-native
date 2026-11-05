@@ -10,7 +10,7 @@ export default function App() {
         <>
             <View style={styles.container}>
                 <Button
-                    title="Select Delivery Location"
+                    title="Select delivery location"
                     onPress={() => setVisible(true)}
                 />
 

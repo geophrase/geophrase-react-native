@@ -57,7 +57,7 @@ export default function Checkout() {
 
     return (
         <View>
-            <Button title="Select Delivery Location" onPress={() => setVisible(true)} />
+            <Button title="Select delivery location" onPress={() => setVisible(true)} />
 
             <GeophraseConnect
                 visible={visible}
