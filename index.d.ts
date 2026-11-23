@@ -20,9 +20,18 @@ export interface GeophraseAddressDetails {
 }
 
 /**
+ * Delivery hub assigned to the resolved address when a business has multiple active hubs.
+ */
+export interface GeophraseHub {
+    name: string;
+    code: string;
+}
+
+/**
  * Fully-resolved address returned in client mode.
- * All fields are always present; `order_id`, `landmark`, and `address_line_two`
- * may be empty strings — never `null`.
+ * All standard address fields are always present; `order_id`, `landmark`,
+ * and `address_line_two` may be empty strings, never `null`.
+ * `hub` is present only when the business has more than one active hub.
  */
 export interface GeophraseAddress {
     short_code: string;
@@ -30,6 +39,7 @@ export interface GeophraseAddress {
     qr_code: string;
     captured_at: number;
     order_id: string;
+    hub?: GeophraseHub;
     address: GeophraseAddressDetails;
 }
 
@@ -62,6 +72,12 @@ export interface GeophraseConnectProps {
 
     /** Secret API key. Required when mode is 'client'; omit in server mode. */
     apiKey?: string;
+
+    /**
+     * Delivery hub code (from Settings > Delivery hubs). Client mode only;
+     * required when mode is 'client' and your business has more than one active hub.
+     */
+    hubCode?: string;
 
     /** Your internal reference ID; echoed back in the dashboard and in the client-mode response. */
     orderId?: string;

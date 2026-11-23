@@ -35,12 +35,24 @@ const safeCall = (fn, payload) => {
     }
 };
 
+const extractApiErrorMessage = (errorData, fallback) => {
+    if (!errorData || typeof errorData !== 'object') return fallback;
+    if (typeof errorData.message === 'string' && errorData.message) return errorData.message;
+    if (typeof errorData.detail === 'string' && errorData.detail) return errorData.detail;
+    for (const value of Object.values(errorData)) {
+        if (Array.isArray(value) && value.length > 0 && typeof value[0] === 'string') return value[0];
+        if (typeof value === 'string' && value) return value;
+    }
+    return fallback;
+};
+
 const GeophraseConnect = ({
                               visible,
                               apiKeyId,
                               mode = 'client',
                               theme,
                               apiKey,
+                              hubCode,
                               orderId,
                               noteForAgent,
                               phone,
@@ -205,6 +217,9 @@ const GeophraseConnect = ({
             }
 
             const payload = { request_id: requestId };
+            if (hubCode != null && String(hubCode).trim()) {
+                payload.hub_code = String(hubCode).trim();
+            }
             if (orderId) payload.order_id = orderId;
             // Cut to the API's limit: a longer note would fail the whole address capture.
             if (noteForAgent) payload.note_for_agent = String(noteForAgent).slice(0, 300);
@@ -221,7 +236,7 @@ const GeophraseConnect = ({
                 safeCall(onError, {
                     type: 'API_ERROR',
                     status: response.status,
-                    message: errorData.message || `Geophrase API error (${response.status})`,
+                    message: extractApiErrorMessage(errorData, `Geophrase API error (${response.status})`),
                 });
                 return;
             }
